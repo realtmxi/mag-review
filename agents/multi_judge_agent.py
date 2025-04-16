@@ -1,4 +1,6 @@
+import asyncio
 import os
+import json
 from dotenv import load_dotenv
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
@@ -16,9 +18,10 @@ azure_api_key = os.getenv("GITHUB_TOKEN")
 
 # Azure GPT-4o Model client
 client = AzureAIChatCompletionClient(
-    model="gpt-4o",
+    model="Llama-3.3-70B-Instruct",
     endpoint="https://models.inference.ai.azure.com",
     credential=AzureKeyCredential(azure_api_key),
+    max_tokens=4096,
     model_info={
         "json_output": True,
         "function_calling": True,
@@ -66,31 +69,41 @@ Your job is to:
 )
 
 # Async runner for multi-agent evaluation
-async def run_multi_judge_agents(papers: list[str], user_query: str):
-    judge_results = {}
-    for paper in papers:
-        evaluations = {}
-        for judge in [judge1, judge2, judge3]:
-            response = await judge.on_messages(
-                [TextMessage(content=f"User query: {user_query}\nPaper: {paper}", source="user")],
-                cancellation_token=CancellationToken()
-            )
-            evaluations[judge.name] = response[-1].content
-        judge_results[paper] = evaluations
+async def run_multi_judge_agents(user_query: str):
+    # Each judge independently retrieves and evaluates papers using their internal prompt and tools
+    judge_agents = [judge1, judge2, judge3]
+    judge_outputs = {}
 
-    final_prompt = """You will receive evaluations for multiple papers. Each paper has been scored by three judges in three dimensions:
-- Relevance (1-10)
-- Novelty (1-10)
-- Impact (1-10)
+    for judge in judge_agents:
+        # Each agent is expected to handle its own tool calling and reasoning
+        print(f"Invoking {judge.name}...")
+        result = await judge.on_messages(
+            [TextMessage(content=user_query, source="user")],
+            cancellation_token=CancellationToken()
+        )
+        # The last message should contain a structured list of paper evaluations
+        judge_outputs[judge.name] = result.chat_message.content
 
-Each judge also provides justifications. Please:
-1. Aggregate the scores.
-2. Analyze agreement between judges.
-3. Rank the papers and explain your final ranking."""
+        # Add delay to avoid triggering rate limit
+        await asyncio.sleep(65)  # Retry-After: 60 + buffer
 
-    final_input = str(judge_results)
-    result = await final_judge.on_messages(
-        [TextMessage(content=final_prompt + "\n\n" + final_input, source="user")],
+    # Prepare final aggregation prompt for Final Judge
+    aggregation_prompt = (
+        "You are the final judge aggregating independent evaluations from three judge agents.\n"
+        "Each judge returns a list of evaluated papers with scores in Relevance, Novelty, and Impact (1-10), "
+        "and short justifications.\n\n"
+        "Your tasks:\n"
+        "1. Identify and merge duplicate papers across judges (if any).\n"
+        "2. Aggregate scores (average or weighted).\n"
+        "3. Summarize agreement/disagreement.\n"
+        "4. Rank papers by overall quality and fitness for recommendation.\n\n"
+        f"Here is the input JSON:\n{json.dumps(judge_outputs)}"
+    )
+
+    print(f"Invoking Final Judge...")
+    final_result = await final_judge.on_messages(
+        [TextMessage(content=aggregation_prompt, source="user")],
         cancellation_token=CancellationToken()
     )
-    return result[-1].content
+    return final_result.chat_message.content
+

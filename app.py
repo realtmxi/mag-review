@@ -12,4 +12,5 @@ async def handle_message(message: cl.Message):
     cl.user_session.get("history").append(("user", user_input))
 
     response = await multi_agent_dispatch(user_input)
-    await cl.Message(content=response.chat_message.content).send()
+    # await cl.Message(content=response.chat_message.content).send()
+    await cl.Message(content=response).send()

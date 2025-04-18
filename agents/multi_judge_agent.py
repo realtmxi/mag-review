@@ -14,13 +14,16 @@ from tools.arxiv_search_tool import query_arxiv, query_web
 
 load_dotenv()
 
-azure_api_key = os.getenv("GITHUB_TOKEN")
+AZURE_KEY_JUDGE1=os.getenv("GITHUB_TOKEN_1")
+AZURE_KEY_JUDGE2=os.getenv("GITHUB_TOKEN_2")
+AZURE_KEY_JUDGE3=os.getenv("AZURE_OPENAI_KEY")
 
-# Azure GPT-4o Model client
-client = AzureAIChatCompletionClient(
+
+# Azure GitHub Model client
+client1 = AzureAIChatCompletionClient(
     model="Llama-3.3-70B-Instruct",
     endpoint="https://models.inference.ai.azure.com",
-    credential=AzureKeyCredential(azure_api_key),
+    credential=AzureKeyCredential(AZURE_KEY_JUDGE1),
     max_tokens=4096,
     model_info={
         "json_output": True,
@@ -30,15 +33,29 @@ client = AzureAIChatCompletionClient(
     },
 )
 
+client2 = AzureAIChatCompletionClient(
+    model="Llama-3.3-70B-Instruct",
+    endpoint="https://models.inference.ai.azure.com",
+    credential=AzureKeyCredential(AZURE_KEY_JUDGE2),
+    max_tokens=4096,
+    model_info={
+        "json_output": True,
+        "function_calling": True,
+        "vision": False,
+        "family": "unknown",
+    },
+)
+
+
 # Tool Wrappers
 arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for research papers.")
 web_tool = FunctionTool(query_web, description="Searches the web for relevant academic content.")
 
 # Define Judge Agents (all evaluate across Relevance, Novelty, and Impact)
-def create_judge_agent(name):
+def create_judge_agent(name, model_client):
     return AssistantAgent(
         name=name,
-        model_client=client,
+        model_client=model_client,
         tools=[arxiv_tool, web_tool],
         system_message=(
             f"You are a judge agent named {name}. For each paper, you will provide three scores (1-10):\n"
@@ -50,14 +67,16 @@ def create_judge_agent(name):
         reflect_on_tool_use=True,
     )
 
-judge1 = create_judge_agent("Judge_1")
-judge2 = create_judge_agent("Judge_2")
-judge3 = create_judge_agent("Judge_3")
+
+judge1 = create_judge_agent("Judge_1", client1)
+judge2 = create_judge_agent("Judge_2", client2)
+judge3 = create_judge_agent("Judge_3", client1)
+
 
 # Define Final Judge
 final_judge = AssistantAgent(
     name="Final_Judge",
-    model_client=client,
+    model_client=client1,
     system_message="""
 You are the final judge. You will receive multiple papers and their evaluations from 3 agents.
 Each agent provides scores and justifications for Relevance, Novelty, and Impact.
@@ -85,20 +104,26 @@ async def run_multi_judge_agents(user_query: str):
         judge_outputs[judge.name] = result.chat_message.content
 
         # Add delay to avoid triggering rate limit
+
         await asyncio.sleep(65)  # Retry-After: 60 + buffer
 
     # Prepare final aggregation prompt for Final Judge
     aggregation_prompt = (
-        "You are the final judge aggregating independent evaluations from three judge agents.\n"
-        "Each judge returns a list of evaluated papers with scores in Relevance, Novelty, and Impact (1-10), "
-        "and short justifications.\n\n"
-        "Your tasks:\n"
-        "1. Identify and merge duplicate papers across judges (if any).\n"
-        "2. Aggregate scores (average or weighted).\n"
-        "3. Summarize agreement/disagreement.\n"
-        "4. Rank papers by overall quality and fitness for recommendation.\n\n"
-        f"Here is the input JSON:\n{json.dumps(judge_outputs)}"
-    )
+    "You are the final judge aggregating independent evaluations from three judge agents.\n"
+    "Each judge returns a list of research papers, with scores in Relevance, Novelty, and Impact (1–10), and brief justifications.\n\n"
+    "Your task is to process their evaluations and produce a clean, structured recommendation output for the user.\n\n"
+    "DO NOT include internal reasoning, calculations, or judge disagreements in your output.\n"
+    "ONLY include the final result: a ranked list of top recommended papers and a summary paragraph.\n\n"
+    "Please follow this output format:\n"
+    "1. A list of recommended papers, ranked from most to least relevant.\n"
+    "   For each paper, provide:\n"
+    "     - Title\n"
+    "     - Abstract\n"
+    "     - Link (if available)\n"
+    "2. A concluding summary paragraph that synthesizes the overall recommendation set—what kinds of papers are included, what trends or strengths are evident, and why they are suited to the user's query.\n\n"
+    f"Here is the input JSON containing the three judges' evaluations:\n{json.dumps(judge_outputs)}"
+)
+
 
     print(f"Invoking Final Judge...")
     final_result = await final_judge.on_messages(

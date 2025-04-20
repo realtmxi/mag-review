@@ -1,5 +1,7 @@
 import os
+from typing import AsyncGenerator
 from dotenv import load_dotenv
+from azure.identity import DefaultAzureCredential
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 from autogen_core.models import UserMessage
@@ -7,12 +9,15 @@ from autogen_ext.models.azure import AzureAIChatCompletionClient
 from azure.core.credentials import AzureKeyCredential
 from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
-
 from tools.arxiv_search_tool import query_arxiv, query_web
+
+
 
 load_dotenv()
 
-azure_api_key = os.getenv("GITHUB_TOKEN")
+azure_api_key = os.getenv("GITHUB_TOKEN") 
+azure_endpoint = os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com") # e.g., "https://models.inference.ai.azure.com"
+model_name = os.getenv("LITERATURE_AGENT_MODEL", "gpt-4o") # Default to gpt-4o if not set
 
 # Azure GitHub Model client
 client = AzureAIChatCompletionClient(
@@ -24,25 +29,64 @@ client = AzureAIChatCompletionClient(
         "function_calling": True,
         "vision": False,
         "family": "unknown",
+        "structured_output": True
     },
 )
 
 # Wrap arxiv/web search tools
 arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for research papers.")
 web_tool = FunctionTool(query_web, description="Searches the web for relevant academic content.")
+async def get_current_time() -> str:
+    return "The current time is 12:00 PM."
 
 # Define agent
 literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
-    tools=[arxiv_tool, web_tool],
+    tools=[arxiv_tool, web_tool, get_current_time],
     system_message="You are a research assistant who can search academic databases and summarize results for the user.",
     reflect_on_tool_use=True,
+    model_client_stream=True
 )
 
-# Async runner wrapper
-async def run_literature_agent(user_input: str):
-    return await literature_assistant.on_messages(
+# Async runner wrapper with proper token streaming
+async def run_literature_agent_stream(user_input: str) -> AsyncGenerator[str, None]:
+    stream = literature_assistant.on_messages_stream(
         [TextMessage(content=user_input, source="user")],
         cancellation_token=CancellationToken()
     )
+    
+    # Yield a loader indicator
+    yield "⏳ Thinking..."
+    
+    # Track the tools being used
+    announced_tools = set()  # Keep track of tools we've already announced
+    result_shown = False
+    
+    async for chunk_event in stream:
+        # If it's a string (direct content chunk)
+        if isinstance(chunk_event, str):
+            yield chunk_event
+        
+        # If it has a content attribute
+        elif hasattr(chunk_event, 'content'):
+            # Check for tool calls
+            if isinstance(chunk_event.content, list):
+                for function_call in chunk_event.content:
+                    if hasattr(function_call, 'name'):
+                        tool_name = function_call.name
+                        
+                        # Only announce a tool if we haven't announced it yet
+                        if tool_name not in announced_tools:
+                            announced_tools.add(tool_name)
+                            yield f"\n\n🔍 **Using tool: {tool_name}**\n\n"
+            
+            # Handle final response
+            elif isinstance(chunk_event.content, str):
+                # If we used tools and haven't shown results marker yet
+                if announced_tools and not result_shown:
+                    yield f"\n\n✅ **Results:**\n\n"
+                    result_shown = True
+                
+                # Yield the final content
+                yield chunk_event.content

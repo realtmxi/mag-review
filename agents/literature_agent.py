@@ -60,14 +60,14 @@ async def run_literature_agent_stream(user_input: str) -> AsyncGenerator[str, No
     yield "⏳ Thinking..."
     
     # Track the tools being used
-    announced_tools = set()  # Keep track of tools we've already announced
+    announced_tools = set()  
     result_shown = False
     
     async for chunk_event in stream:
         # If it's a string (direct content chunk)
         if isinstance(chunk_event, str):
             yield chunk_event
-        
+            
         # If it has a content attribute
         elif hasattr(chunk_event, 'content'):
             # Check for tool calls
@@ -79,14 +79,39 @@ async def run_literature_agent_stream(user_input: str) -> AsyncGenerator[str, No
                         # Only announce a tool if we haven't announced it yet
                         if tool_name not in announced_tools:
                             announced_tools.add(tool_name)
-                            yield f"\n\n🔍 **Using tool: {tool_name}**\n\n"
-            
+                            
+                            # Announce the tool being used
+                            yield f"\n\n🔍 **Using tool: {tool_name}**\n"
+                            
+                            # Add function arguments display
+                            if hasattr(function_call, 'arguments') and function_call.arguments:
+                                try:
+                                    import json
+                                    # Parse the arguments if they're a string containing JSON
+                                    if isinstance(function_call.arguments, str):
+                                        try:
+                                            args_obj = json.loads(function_call.arguments)
+                                            if args_obj == {} or not args_obj:
+                                                continue
+                                            args_formatted = json.dumps(args_obj, indent=2)
+                                        except:
+                                            args_formatted = json.dumps(function_call.arguments, indent=2)
+                                    else:
+                                        args_formatted = json.dumps(function_call.arguments, indent=2)
+                                    
+                                    yield f"\n\n📋 **Tool call arguments:**\n\n```json\n{args_formatted}\n```\n\n"
+                                except Exception as e:
+                                     yield f"\n\n❌ **Error displaying arguments:** {str(e)}\n\n"
+                            else:
+                                # Add an extra newline for consistent spacing
+                                yield "\n"
+                        
             # Handle final response
             elif isinstance(chunk_event.content, str):
                 # If we used tools and haven't shown results marker yet
                 if announced_tools and not result_shown:
                     yield f"\n\n✅ **Results:**\n\n"
                     result_shown = True
-                
+                    
                 # Yield the final content
                 yield chunk_event.content

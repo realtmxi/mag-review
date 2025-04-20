@@ -15,13 +15,12 @@ async def handle_message(message: cl.Message):
     history = cl.user_session.get("history")
     history.append(("user", user_input))
     
-    # Initialize empty message for streaming
+    # Initialize message for streaming with "Thinking..."
     msg = cl.Message(content="Thinking...")
     await msg.send()
     
     try:
         full_response = ""
-        thinking_removed = False
         
         # Stream tokens from the appropriate agent
         async for token in multi_agent_dispatch_stream(user_input):
@@ -30,12 +29,11 @@ async def handle_message(message: cl.Message):
                 if token == "⏳ Thinking...":
                     continue
                 
-                # On first real token, clear the "Thinking..." text
-                if not thinking_removed:
-                    # Create a new message instead of updating the old one
-                    msg = cl.Message(content="")
-                    await msg.send()
-                    thinking_removed = True
+                # For the first real token, update the existing message
+                if full_response == "":
+                    # Clear the "Thinking..." text
+                    msg.content = ""
+                    await msg.update()
                 
                 # Add token to full response
                 full_response += token

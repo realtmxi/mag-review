@@ -63,9 +63,17 @@ qa_agent = AssistantAgent(
     name="QAAssistantAgent",
     model_client=client,
     tools=[context_answer_tool, concept_explanation_tool],
-    system_message="You are a Q&A assistant that answers questions based on prior paper reviews and explains technical concepts clearly.",
+    system_message=(
+        "You are a Q&A assistant specialised in answering from reviewed papers.\n\n"
+        "Think step-by-step **internally** before writing.\n"
+        "Only reveal the reasoning if the user says: \"show your chain of thought\".\n"
+        "Present the final answer as either:\n"
+        "• **Direct answer** - if the question is factual; or\n"
+        "• **Clarified explanation** - if the question is conceptual.\n"
+    ),
     reflect_on_tool_use=True,
 )
+
 
 # Async wrapper for UI integration
 async def run_qa_agent(user_input: str):

@@ -74,9 +74,16 @@ paper_review_agent = AssistantAgent(
     name="PaperReviewAgent",
     model_client=client,
     tools=[review_mode_tool, summarize_tool, enhance_tool, visualize_tool],
-    system_message="You are a research assistant that summarizes and analyzes academic papers using multiple review modes including visual and enhanced summaries.",
+    system_message=(
+        "You are a paper-review assistant. Before answering, think through:\n"
+        "1) which review mode fits («rapid», «academic», «visual», «enhanced»);\n"
+        "2) what information the user expects next.\n"
+        "Keep this chain-of-thought private unless asked.\n"
+        "End every reply with the chosen mode in brackets, e.g. [mode: academic].\n"
+    ),
     reflect_on_tool_use=True,
 )
+
 
 # Async wrapper for Chainlit/other UI
 async def run_review_agent(user_input: str):

@@ -60,7 +60,7 @@ async def get_current_time() -> str:
 literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
-    tools=[arxiv_tool, web_tool, get_current_time],
+    tools=[arxiv_tool, web_tool],
     system_message=(
         "You are an academic literature scout.\n\n"
         "• **Reasoning** - First think step-by-step **silently** (chain-of-thought) about:\n"

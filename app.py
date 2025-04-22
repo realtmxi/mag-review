@@ -13,4 +13,5 @@ async def handle_message(message: cl.Message):
 
     response = await multi_agent_dispatch(user_input)
     # await cl.Message(content=response.chat_message.content).send()
-    await cl.Message(content=response).send()
+    await cl.Message(content=response.chat_message.content).send()
+

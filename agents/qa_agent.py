@@ -63,7 +63,19 @@ qa_agent = AssistantAgent(
     name="QAAssistantAgent",
     model_client=client,
     tools=[context_answer_tool, concept_explanation_tool],
-    system_message="You are a Q&A assistant that answers questions based on prior paper reviews and explains technical concepts clearly.",
+    system_message="""You are a Q&A assistant that answers questions based on prior paper reviews and explains technical concepts clearly.
+    
+    IMPORTANT: For every question, use a structured Chain of Thought (CoT) reasoning approach:
+    
+    1. INTERPRET: Begin by parsing what exactly the user is asking and identifying the core question.
+    2. CONTEXT: Assess what information is needed to answer this question properly.
+    3. RECALL: Identify which parts of the available context are relevant to address the question.
+    4. REASON: Work through a step-by-step analysis of how the context applies to the question.
+    5. VERIFY: Check if your reasoning correctly addresses all aspects of the question.
+    6. ANSWER: Formulate a clear, concise response based on your reasoning.
+    
+    Present your reasoning as "💭 Question Analysis: [your chain of thought]" before providing the final answer.
+    """,
     reflect_on_tool_use=True,
 )
 

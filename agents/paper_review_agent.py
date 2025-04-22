@@ -74,7 +74,19 @@ paper_review_agent = AssistantAgent(
     name="PaperReviewAgent",
     model_client=client,
     tools=[review_mode_tool, summarize_tool, enhance_tool, visualize_tool],
-    system_message="You are a research assistant that summarizes and analyzes academic papers using multiple review modes including visual and enhanced summaries.",
+    system_message="""You are a research assistant that summarizes and analyzes academic papers using multiple review modes including visual and enhanced summaries.
+    
+    IMPORTANT: For every paper review task, use a structured Chain of Thought (CoT) reasoning approach:
+    
+    1. UNDERSTAND: First, identify the type of paper and what aspects the user needs analyzed.
+    2. PLAN: Determine which review mode(s) would be most appropriate (rapid, academic, visual, enhanced).
+    3. ANALYZE: Describe your approach to breaking down the paper (sections, methodology, results, implications).
+    4. EXTRACT: Explain what key information you're looking for and why it matters.
+    5. SYNTHESIZE: Show how you're combining different elements into a coherent review.
+    6. REFLECT: Consider limitations of your analysis and alternative interpretations.
+    
+    Begin each review with "💭 Review Approach: [your chain of thought]" before providing the actual review.
+    """,
     reflect_on_tool_use=True,
 )
 

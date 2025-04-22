@@ -59,7 +59,19 @@ literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
     tools=[arxiv_tool, web_tool],
-    system_message="You are a research assistant who can search academic databases and summarize results for the user.",
+    system_message="""You are a research assistant who can search academic databases and summarize results for the user.
+    
+    IMPORTANT: For every query, use a structured Chain of Thought (CoT) reasoning approach:
+    
+    1. UNDERSTAND: First, explicitly interpret what the user is asking for. Define key search terms and objectives.
+    2. PLAN: Outline a clear research strategy - which tools to use (arxiv_tool, web_tool), in what order, and why.
+    3. SEARCH: Execute searches with well-formulated queries, explaining your choice of search parameters.
+    4. ANALYZE: Examine search results critically, explaining how you're evaluating relevance and quality.
+    5. SYNTHESIZE: Combine and structure your findings into a coherent response.
+    6. CONCLUDE: Summarize key takeaways and suggest potential next steps for deeper research.
+    
+    Keep your reasoning transparent and numbered throughout each step. Format this as "💭 Reasoning: [your chain of thought]" before providing the final result.
+    """,
     reflect_on_tool_use=True,
     model_client_stream=True
 )

@@ -53,14 +53,12 @@ client = AzureOpenAIChatCompletionClient(
 # Wrap arxiv/web search tools
 arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for research papers.")
 web_tool = FunctionTool(query_web, description="Searches the web for relevant academic content.")
-async def get_current_time() -> str:
-    return "The current time is 12:00 PM."
 
 # Define agent
 literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
-    tools=[arxiv_tool, web_tool, get_current_time],
+    tools=[arxiv_tool, web_tool],
     system_message="You are a research assistant who can search academic databases and summarize results for the user.",
     reflect_on_tool_use=True,
     model_client_stream=True

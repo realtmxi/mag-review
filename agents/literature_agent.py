@@ -56,6 +56,7 @@ web_tool = FunctionTool(query_web, description="Searches the web for relevant ac
 async def get_current_time() -> str:
     return "The current time is 12:00 PM."
 
+# Define agent
 literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
@@ -72,9 +73,8 @@ literature_assistant = AssistantAgent(
         "• **Tool use** - When you call a tool, add a one-sentence description of *why* you chose it.\n"
     ),
     reflect_on_tool_use=True,
-    model_client_stream=True,
+    model_client_stream=True
 )
-
 
 # Async runner wrapper with proper token streaming
 async def run_literature_agent_stream(user_input: str) -> AsyncGenerator[str, None]:

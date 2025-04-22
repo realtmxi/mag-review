@@ -1,64 +1,97 @@
-import argparse
 import os
-import json
-from openai import AzureOpenAI
-from dotenv import load_dotenv
+import asyncio
+from autogen_core import CancellationToken
+from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
+from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.messages import TextMessage
+from autogen_agentchat.ui import Console
 
-# Load environment variables
-load_dotenv()
-
-# Retrieve API credentials
-api_key = os.getenv("OAI_KEY")
-api_endpoint = os.getenv("OAI_ENDPOINT")
-
-def test_openai_client():
-    """Test the AzureOpenAI client connection and response format."""
+async def main():
+    # Get API credentials from environment variables
+    api_key = os.getenv("OAI_KEY")
+    api_endpoint = os.getenv("OAI_ENDPOINT")
     
     if not api_key or not api_endpoint:
-        print("[ERROR] API Key or Endpoint is missing. Check your .env file or environment variables.")
-        return False
+        raise ValueError("Please set OAI_KEY and OAI_ENDPOINT environment variables")
+    
+    # Configure the Azure OpenAI client
+    model_client = AzureOpenAIChatCompletionClient(
+        api_key=api_key,
+        azure_endpoint=api_endpoint,
+        api_version="2024-05-13",
+        model="gpt-4",  # Replace with your actual model deployment name
+    )
+    
+    # Create an assistant agent
+    agent = AssistantAgent(
+        name="assistant",
+        model_client=model_client,
+        description="A helpful assistant.",
+        system_message="You are a helpful AI assistant. Answer questions concisely and accurately.",
+    )
+    
+    # Test a simple query
+    print("Running single response test...")
+    response = await agent.on_messages(
+        [TextMessage(content="What is the capital of France?", source="user")],
+        CancellationToken()
+    )
+    print(f"Response: {response.chat_message.content}")
+    
+    # Test streaming mode
+    print("\nRunning streaming test...")
+    streaming_agent = AssistantAgent(
+        name="streaming_assistant",
+        model_client=model_client,
+        model_client_stream=True,
+        description="A helpful assistant with streaming enabled.",
+    )
+    
+    print("Streaming response (you'll see tokens as they arrive):")
+    stream = streaming_agent.on_messages_stream(
+        [TextMessage(content="Name three famous landmarks in Paris.", source="user")],
+        CancellationToken()
+    )
+    
+    await Console(stream)
 
-    try:
-        client = AzureOpenAI(
-            api_version="2024-05-13",
-            azure_endpoint=api_endpoint,
-            api_key=api_key,
-        )
+# Add a simple tool function to test function calling capabilities
+async def get_current_time():
+    """Returns the current time."""
+    from datetime import datetime
+    return f"The current time is {datetime.now().strftime('%H:%M:%S')}."
 
-        print("[INFO] Client initialized successfully.")
-
-        # Basic test query to check connection
-        test_prompt = "What is 2 + 2?"
-        response = client.chat.completions.create(
-            model="gpt-4o",  # Adjust based on available models in your Azure account
-            messages=[{"role": "user", "content": test_prompt}],
-            temperature=0,
-            max_tokens=10
-        )
-
-        if response and response.choices:
-            print("[SUCCESS] API connection successful. Response received:")
-            print(json.dumps(response.choices[0].message.content, indent=2))
-            return True
-        else:
-            print("[ERROR] API connection test failed. No valid response.")
-            return False
-
-    except Exception as e:
-        print(f"[ERROR] Exception occurred while testing API: {e}")
-        return False
+async def test_with_tool():
+    # Get API credentials from environment variables
+    api_key = os.getenv("OAI_KEY")
+    api_endpoint = os.getenv("OAI_ENDPOINT")
+    
+    # Configure the Azure OpenAI client
+    model_client = AzureOpenAIChatCompletionClient(
+        api_key=api_key,
+        azure_endpoint=api_endpoint,
+        api_version="2024-05-13",
+        model="gpt-4",  # Replace with your actual model deployment name
+    )
+    
+    # Create an assistant agent with tools
+    agent = AssistantAgent(
+        name="tool_assistant",
+        model_client=model_client,
+        tools=[get_current_time],
+        description="A helpful assistant that can use tools.",
+    )
+    
+    print("\nRunning tool test...")
+    response = await agent.on_messages(
+        [TextMessage(content="What time is it now?", source="user")],
+        CancellationToken()
+    )
+    print(f"Response with tool: {response.chat_message.content}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--test', action='store_true', help='Run API connection tests')
-
-    args = parser.parse_args()
-
-    if args.test:
-        print("[INFO] Running OpenAI API connection tests...")
-        success = test_openai_client()
-        if not success:
-            print("[WARNING] API test failed. Please check your setup.")
-    else:
-        print("[INFO] Running the main application...")
-        # Call your existing search and evaluate functions here
+    # Run tests
+    asyncio.run(main())
+    
+    # Uncomment below to test function calling
+    asyncio.run(test_with_tool())

@@ -5,6 +5,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 from autogen_core.models import UserMessage
 from autogen_ext.models.azure import AzureAIChatCompletionClient
+from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
 from azure.core.credentials import AzureKeyCredential
 from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
@@ -17,10 +18,27 @@ azure_api_key = os.getenv("GITHUB_TOKEN")
 
 
 # Azure GitHub Model client
-client = AzureAIChatCompletionClient(
+# client = AzureAIChatCompletionClient(
+#     model="gpt-4o",
+#     endpoint="https://models.inference.ai.azure.com",
+#     credential=AzureKeyCredential(azure_api_key),
+#     model_info={
+#         "json_output": True,
+#         "function_calling": True,
+#         "vision": False,
+#         "family": "unknown",
+#     },
+# )
+
+api_key = os.getenv("OAI_KEY")
+api_endpoint = os.getenv("OAI_ENDPOINT")
+
+# Azure GitHub Model client
+client = AzureOpenAIChatCompletionClient(
+    api_key=api_key,
+    azure_endpoint=api_endpoint,
     model="gpt-4o",
-    endpoint="https://models.inference.ai.azure.com",
-    credential=AzureKeyCredential(azure_api_key),
+    api_version="2024-05-13",
     model_info={
         "json_output": True,
         "function_calling": True,

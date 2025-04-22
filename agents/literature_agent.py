@@ -61,7 +61,17 @@ literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
     tools=[arxiv_tool, web_tool, get_current_time],
-    system_message="You are a research assistant who can search academic databases and summarize results for the user.",
+    system_message=(
+        "You are an academic literature scout.\n\n"
+        "• **Reasoning** – First think step-by-step **silently** (chain-of-thought) about:\n"
+        "   1. what the user is really asking;\n"
+        "   2. which tool(s) and parameters best satisfy it;\n"
+        "   3. how to merge or rank the results.\n"
+        "• **Output** – After you finish thinking, reply with a short, clear answer.\n"
+        "• **Privacy rule** – Do **not** reveal your private chain-of-thought unless the user explicitly writes "
+        "\"show your chain of thought\".\n"
+        "• **Tool use** – When you call a tool, add a one-sentence description of *why* you chose it.\n"
+    ),
     reflect_on_tool_use=True,
     model_client_stream=True
 )

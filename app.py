@@ -1,13 +1,60 @@
 import chainlit as cl
 from orchestrator.multi_agent_router import multi_agent_dispatch_stream
+from typing import Optional
+import json
+
+# Constants for agent types
+SEARCH_AGENT = "search"
+DOCUMENT_AGENT = "document"
+
+@cl.set_chat_profiles
+async def chat_profiles(current_user: cl.User):
+    return [
+        cl.ChatProfile(
+            name="Search Agent",
+            markdown_description="🔎 **Academic Research Explorer**\n\nAccess cutting-edge research papers and scholarly articles from arXiv, academic databases, and trusted web sources. Perfect for comprehensive literature reviews, citation analysis, and staying current with the latest developments in your field.",
+            icon="https://cdn-icons-png.flaticon.com/512/7641/7641727.png",
+        ),
+        cl.ChatProfile(
+            name="Document Analysis",
+            markdown_description="📑 **Document Intelligence System**\n\nUpload research papers, technical documents, and academic PDFs for in-depth analysis. Extract key insights, visualize data, identify main findings, and get comprehensive answers to your specific questions about the document content.",
+            icon="https://cdn-icons-png.flaticon.com/512/4725/4725970.png",
+        ),
+    ]
 
 @cl.on_chat_start
 async def start():
+    # Initialize session variables
     cl.user_session.set("history", [])
-    await cl.Message(content="Welcome! Ask me anything — I can find papers, review PDFs, or answer scientific questions.").send()
+    cl.user_session.set("active_documents", [])
+    
+    # Get the selected chat profile
+    chat_profile = cl.user_session.get("chat_profile")
+    
+    # Set the current agent based on the selected profile without sending a welcome message
+    if chat_profile == "Search Agent":
+        cl.user_session.set("current_agent", SEARCH_AGENT)
+    elif chat_profile == "Document Analysis":
+        cl.user_session.set("current_agent", DOCUMENT_AGENT)
+
 
 @cl.on_message
-async def handle_message(message: cl.Message):
+async def main(message: cl.Message):
+    # Get current active agent
+    current_agent = cl.user_session.get("current_agent")
+    
+    history = cl.user_session.get("history")
+    history.append(("user", message.content))
+    
+    if current_agent == SEARCH_AGENT:
+        await handle_search_message(message)
+    elif current_agent == DOCUMENT_AGENT:
+        # placeholder, work in progress
+        await handle_search_message(message)
+
+
+@cl.on_message
+async def handle_search_message(message: cl.Message):
     # Process the user input
     user_input = message.content.strip()
     

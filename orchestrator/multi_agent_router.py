@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 from autogen_agentchat.messages import TextMessage
 from autogen_core import CancellationToken
 from agents.literature_agent import run_literature_agent_stream
+from agents.multi_judge_agent import run_multi_judge_agents
 # from agents.paper_review_agent import run_review_agent_stream
 # from agents.qa_agent import run_qa_agent_stream
 from tools.qa_tools import load_context
@@ -14,7 +15,7 @@ async def multi_agent_dispatch_stream(user_input: str) -> AsyncGenerator[str, No
     lowered = user_input.lower()
 
     if any(x in lowered for x in ["find papers", "search", "recommend", "literature"]):
-        async for token in run_literature_agent_stream(user_input):
+        async for token in run_multi_judge_agents(user_input):
             yield token
 
     # elif any(x in lowered for x in ["review", "summarize", "analyze", "academic", "rapid", "enhanced", "visual"]):

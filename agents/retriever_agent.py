@@ -16,7 +16,7 @@ azure_api_key = os.getenv("GITHUB_TOKEN_1")
 
 # Azure GitHub Model client
 client = AzureAIChatCompletionClient(
-    model="gpt-4o",
+    model="gpt-4o-mini",
     endpoint="https://models.inference.ai.azure.com",
     credential=AzureKeyCredential(azure_api_key),
     model_info={
@@ -32,17 +32,23 @@ arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for research 
 web_tool = FunctionTool(query_web, description="Searches the web for relevant academic content.")
 
 # Define agent
-literature_assistant = AssistantAgent(
-    name="LiteratureCollectionAgent",
+retriever_assistant = AssistantAgent(
+    name="PaperRetrieverAgent",
     model_client=client,
     tools=[arxiv_tool, web_tool],
-    system_message="You are a research assistant who can search academic databases and summarize results for the user.",
+    system_message= "You are a research assistant who can search academic databases like arXiv. "
+    "Your task is to retrieve and summarize academic papers based on a user query.\n"
+    "You MUST return a JSON list containing exactly 10 entries. Each entry should include:\n"
+    "- title: the full title of the paper\n"
+    "- abstract: a short abstract (2–4 sentences)\n"
+    "- link: the paper's direct URL (e.g., arXiv link)\n\n"
+    "Only return the JSON list. Do not include any extra explanation.",
     reflect_on_tool_use=True,
 )
 
 # Async runner wrapper
-async def run_literature_agent(user_input: str):
-    return await literature_assistant.on_messages(
+async def run_retriever_assistant(user_input: str):
+    return await retriever_assistant.on_messages(
         [TextMessage(content=user_input, source="user")],
         cancellation_token=CancellationToken()
     )

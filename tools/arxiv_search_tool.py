@@ -1,8 +1,18 @@
 import requests
 from duckduckgo_search import DDGS
 from typing import Dict, Any, List, Optional, Union
+from keybert import KeyBERT
 
-def query_arxiv(topic: str, max_results: int = 5, sort_by: str = "relevance", sort_order: str = "descending"):
+kw_model = KeyBERT()
+
+def extract_main_topic(query: str):
+    keywords = kw_model.extract_keywords(query, keyphrase_ngram_range=(1, 3), stop_words='english')
+    # keywords like [('deep learning', 0.89), ('impactful', 0.35)]
+    if keywords:
+        return keywords[0][0]
+    return query
+
+def query_arxiv(query: str, max_results: int = 5, sort_by: str = "relevance", sort_order: str = "descending"):
     """
     Query the arXiv API for papers on a specific topic with sorting options.
     
@@ -17,6 +27,10 @@ def query_arxiv(topic: str, max_results: int = 5, sort_by: str = "relevance", so
     """
     valid_sort_by = ["relevance", "submittedDate"]
     valid_sort_order = ["ascending", "descending"]
+
+    print(f"Querying arXiv for: {query}")
+    topic = extract_main_topic(query)
+    print(f"Extracted topic: {topic}")
     
     if sort_by not in valid_sort_by:
         return f"Invalid sort_by parameter. Must be one of: {', '.join(valid_sort_by)}"

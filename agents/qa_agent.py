@@ -13,7 +13,7 @@ from tools.qa_tools import answer_from_context, explain_concept
 
 load_dotenv()
 
-azure_api_key = os.getenv("GITHUB_TOKEN_1")
+azure_api_key = os.getenv("GITHUB_TOKEN")
 
 
 # Azure GitHub Model client

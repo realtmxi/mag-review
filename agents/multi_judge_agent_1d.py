@@ -23,7 +23,7 @@ def create_azure_client(key_env):
         model_info={"json_output": True, "function_calling": True, "vision": False, "family": "unknown",},
     )
 
-client1 = create_azure_client("GITHUB_TOKEN_1")
+client1 = create_azure_client("GITHUB_TOKEN")
 client2 = create_azure_client("GITHUB_TOKEN_2")
 
 # === Tools: arxiv + web

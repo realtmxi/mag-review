@@ -13,7 +13,7 @@ from tools.review_tools import review_dispatcher, summarize_pdf, enhanced_summar
 
 load_dotenv()
 
-azure_api_key = os.getenv("GITHUB_TOKEN_1")
+azure_api_key = os.getenv("GITHUB_TOKEN")
 review_modes = ["rapid", "academic", "visual", "enhanced"]
 
 # Azure GitHub Model client

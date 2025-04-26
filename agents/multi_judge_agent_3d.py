@@ -14,7 +14,7 @@ from tools.arxiv_search_tool import query_arxiv, query_web
 
 load_dotenv()
 
-AZURE_KEY_JUDGE1=os.getenv("GITHUB_TOKEN_1")
+AZURE_KEY_JUDGE1=os.getenv("GITHUB_TOKEN")
 AZURE_KEY_JUDGE2=os.getenv("GITHUB_TOKEN_2")
 
 

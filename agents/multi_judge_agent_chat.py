@@ -19,7 +19,7 @@ load_dotenv()
 client = AzureAIChatCompletionClient(
     model="gpt-4o-mini",
     endpoint="https://models.inference.ai.azure.com",
-    credential=AzureKeyCredential(os.environ["GITHUB_TOKEN_1"]),
+    credential=AzureKeyCredential(os.environ["GITHUB_TOKEN"]),
     model_info={
         "json_output": True,
         "function_calling": True,

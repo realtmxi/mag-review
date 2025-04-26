@@ -12,7 +12,7 @@ from tools.arxiv_search_tool import query_arxiv, query_web
 
 load_dotenv()
 
-azure_api_key = os.getenv("GITHUB_TOKEN_1")
+azure_api_key = os.getenv("GITHUB_TOKEN")
 
 # Azure GitHub Model client
 client = AzureAIChatCompletionClient(

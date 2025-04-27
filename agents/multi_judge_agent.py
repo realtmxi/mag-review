@@ -5,6 +5,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
 from autogen_core import CancellationToken
+import json
 
 load_dotenv()
 
@@ -196,7 +197,6 @@ async def run_multi_judge_agents(user_input: str) -> AsyncGenerator[str, None]:
                             # Add function arguments display
                             if hasattr(function_call, 'arguments') and function_call.arguments:
                                 try:
-                                    import json
                                     # Parse the arguments if they're a string containing JSON
                                     if isinstance(function_call.arguments, str):
                                         try:

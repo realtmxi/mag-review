@@ -1,18 +1,10 @@
 import os
 from typing import AsyncGenerator
 from dotenv import load_dotenv
-from azure.identity import DefaultAzureCredential
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
-from autogen_core.models import UserMessage
-from autogen_ext.models.azure import AzureAIChatCompletionClient
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
-from azure.core.credentials import AzureKeyCredential
-from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
-from tools.arxiv_search_tool import query_arxiv, query_web
-
-
 
 load_dotenv()
 

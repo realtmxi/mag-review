@@ -9,7 +9,7 @@ from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoic
 from semantic_kernel.functions.kernel_arguments import KernelArguments
 
 from agents.multi_judge_agent import run_multi_judge_agents
-from agents.literature_agent import run_literature_agent
+from agents.literature_agent import run_literature_agent_stream
 from agents.qa_agent import run_qa_agent
 
 load_dotenv()
@@ -32,7 +32,7 @@ Select ONLY the most relevant skill for the user's query:
 - 'qa_plugin': Handle file uploads, document analysis, and retrieval-augmented generation (RAG) discussions based on user-uploaded documents. Use for answering questions about user files or for RAG-based academic discussions.
 """
 
-async def multi_agent_dispatch(user_input: str) -> str:
+async def multi_agent_dispatch_stream(user_input: str) -> str:
     print(f"\n---\nUser input: {user_input}\n---")
     result = await kernel.invoke_prompt(
         prompt=system_prompt + "\nUser: " + user_input,
@@ -46,10 +46,14 @@ async def multi_agent_dispatch(user_input: str) -> str:
     result_str = str(result).lower()
 
     if "recommend_classic" in result_str:
-        return await run_multi_judge_agents(user_input)
+        async for token in run_multi_judge_agents(user_input):
+            yield token
     elif "search_latest" in result_str:
-        return await run_literature_agent(user_input)
+        async for token in run_literature_agent_stream(user_input):
+            yield token
     elif "doc_qa" in result_str:
-        return await run_qa_agent(user_input)
+        async for token in run_qa_agent(user_input):
+            yield token
     else:
-        return await run_literature_agent(user_input)  # default fallback
+        async for token in run_literature_agent_stream(user_input):
+            yield token # default feedback

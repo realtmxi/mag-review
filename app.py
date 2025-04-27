@@ -58,7 +58,7 @@ async def start():
         cl.user_session.set("current_agent", SEARCH_AGENT)
     elif chat_profile == "Document Agent":
         cl.user_session.set("current_agent", DOCUMENT_AGENT)
-        
+            
         try:
             cl.user_session.set("document_qa_agent", document_qa_agent)
             # Prompt for file upload
@@ -71,44 +71,62 @@ async def start():
             ).send()
             
             if files:
-                file_count = len(files) 
+                # Prepare batch of files for processing
+                files_to_process = []
+                processed_files = []
+                file_count = len(files)
                 file_text = "file" if file_count == 1 else "files"
-                processing_msg = cl.Message(content=f"Processing {file_count} {file_text}...")
+                active_docs = cl.user_session.get("active_documents", [])
+                
+                processing_msg = cl.Message(content=f"Starting to process {file_count} {file_text}...")
                 await processing_msg.send()
-                await asyncio.sleep(1)
                 
-                # TODO: Support multiple files
-                file = files[0]
-                
-                try:
-                    # Process the document using your existing document_qa_agent
-                    chunk_count = document_qa_agent.process_document(file.path, "pdf", file.name)
-                    
-                    # Add to active documents list
-                    active_docs = cl.user_session.get("active_documents", [])
-                    active_docs.append({
-                        "name": file.name,
+                # Prepare the files list 
+                for i, file in enumerate(files):
+                    file_extension = file.path.split('.')[-1].lower()
+                    file_data = {
                         "path": file.path,
-                        # "type": file.type,
-                        "chunks": chunk_count
-                    })
-                    cl.user_session.set("active_documents", active_docs)
-                    
-                    # Update the processing message
-                    processing_msg.content = f"✅ Processed! Your documents are now at your fingertips - what would you like to discover?"
+                        "type": file_extension,
+                        "name": file.name
+                    }
+                    files_to_process.append(file_data)
+                    active_docs.append(file_data)
+                cl.user_session.set("active_documents", active_docs)
+                
+                # Process files one by one with status updates
+                for i, file_data in enumerate(files_to_process):
+                    processing_msg.content = f"Processing file {i+1}/{file_count}: {file_data['name']}..."
                     await processing_msg.update()
                     
-                except Exception as e:
-                    # Handle processing errors
-                    processing_msg.content = f"❌ Failed to process {file.name}: {str(e)}"
-                    await processing_msg.update()
-            
+                    try:
+                        # Process individual document
+                        chunks = document_qa_agent.process_document(
+                            file_data["path"], 
+                            file_data["type"], 
+                            file_data["name"]
+                        )
+                        processed_files.append(file_data["name"])
+                        processing_msg.content = f"✅ Processed file {i+1}/{file_count}: {file_data['name']} ({chunks} chunks)"
+                        await processing_msg.update()
+                        await asyncio.sleep(1)  # Small delay so user can see each file being processed
+                    
+                    except Exception as e:
+                        processing_msg.content = f"❌ Failed to process file {i+1}/{file_count}: {file_data['name']} - {str(e)}"
+                        await processing_msg.update()
+                        await asyncio.sleep(1)
+                
+                # Final summary
+                if len(processed_files) == file_count:
+                    processing_msg.content = f"✅ All {file_count} {file_text} processed successfully! What would you like to discover?"
+                else:
+                    processing_msg.content = f"⚠️ Processed {len(processed_files)}/{file_count} {file_text}. Some files failed processing."
+                await processing_msg.update()
+                
         except Exception as e:
             await cl.Message(
                 content=f"Failed to initialize Document QA Agent: {str(e)}",
                 author="System"
             ).send()
-
 
 @cl.on_message
 async def main(message: cl.Message):
@@ -137,7 +155,7 @@ async def handle_search_message(message: cl.Message):
         full_response = ""
         
         # Stream tokens from the appropriate agent
-        async for token in run_literature_agent_stream(user_input):
+        async for token in multi_agent_dispatch_stream(user_input):
             if token:
                 # Skip the loader token
                 if token == "⏳ Thinking...":

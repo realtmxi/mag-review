@@ -8,7 +8,7 @@ from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecut
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
 from semantic_kernel.functions.kernel_arguments import KernelArguments
 
-from agents.multi_judge_agent_1d import run_multi_judge_agents
+from agents.multi_judge_agent import run_multi_judge_agents
 from agents.literature_agent import run_literature_agent
 from agents.qa_agent import run_qa_agent
 

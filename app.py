@@ -1,6 +1,5 @@
 import os
 import chainlit as cl
-from agents.literature_agent import run_literature_agent_stream
 from agents.document_agent import DocumentQAAgent
 from prompts.prompt_template import FILE_UPLOAD_MESSAGE
 from typing import Optional, AsyncGenerator
@@ -137,7 +136,7 @@ async def handle_search_message(message: cl.Message):
         full_response = ""
         
         # Stream tokens from the appropriate agent
-        async for token in run_literature_agent_stream(user_input):
+        async for token in multi_agent_dispatch_stream(user_input):
             if token:
                 # Skip the loader token
                 if token == "⏳ Thinking...":

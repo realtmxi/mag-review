@@ -45,13 +45,13 @@ async def multi_agent_dispatch_stream(user_input: str) -> str:
     
     result_str = str(result).lower()
 
-    if "recommend_classic" in result_str:
+    if "multi_judge_plugin" in result_str:
         async for token in run_multi_judge_agents(user_input):
             yield token
-    elif "search_latest" in result_str:
+    elif "literature_plugin" in result_str:
         async for token in run_literature_agent_stream(user_input):
             yield token
-    elif "doc_qa" in result_str:
+    elif "qa_plugin" in result_str:
         async for token in run_qa_agent(user_input):
             yield token
     else:

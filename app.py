@@ -1,5 +1,5 @@
 import chainlit as cl
-from orchestrator.multi_agent_router import multi_agent_dispatch
+from orchestrator.sk_router_planner import multi_agent_dispatch
 
 @cl.on_chat_start
 async def start():

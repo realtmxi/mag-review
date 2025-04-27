@@ -140,10 +140,7 @@ class DocumentQAAgent:
             loader = PyMuPDFLoader(file_path)
         elif file_type in ["txt", "text"]:
             # Loads one file into one document
-            loader = TextLoader(file_path)
-        elif file_type == "csv":
-            # Loads one file into multiple documents (one per row)
-            loader = CSVLoader(file_path)
+            loader = TextLoader(file_path, encoding="utf-8")
         elif file_type in ["docx", "doc"]:
             # Loads one file into one document
             loader = Docx2txtLoader(file_path)
@@ -154,9 +151,8 @@ class DocumentQAAgent:
         documents = loader.load()
         
         # Normalize metadata - filename/page
-        actual_filename = file_name if file_name else os.path.basename(file_path)
         for doc in documents:
-            doc.metadata["source"] = actual_filename
+            doc.metadata["source"] = file_name
             # For non-PDF files that don't have page numbers
             if "page" not in doc.metadata:
                 doc.metadata["page"] = 1

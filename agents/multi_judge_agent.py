@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
+from autogen_ext.models.azure import AzureAIChatCompletionClient
+from azure.core.credentials import AzureKeyCredential
 from autogen_core import CancellationToken
 import json
 
@@ -13,36 +15,36 @@ azure_api_key = os.getenv("GITHUB_TOKEN")
 azure_endpoint = os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com") # e.g., "https://models.inference.ai.azure.com"
 model_name = os.getenv("LITERATURE_AGENT_MODEL", "gpt-4o") # Default to gpt-4o if not set
 
-# # Azure GitHub Model client
-# client = AzureAIChatCompletionClient(
-#     model="gpt-4o",
-#     endpoint="https://models.inference.ai.azure.com",
-#     credential=AzureKeyCredential(azure_api_key),
-#     model_info={
-#         "json_output": True,
-#         "function_calling": True,
-#         "vision": False,
-#         "family": "unknown",
-#         "structured_output": True
-#     },
-# )
-
-api_key = os.getenv("OAI_KEY")
-api_endpoint = os.getenv("OAI_ENDPOINT")
-
 # Azure GitHub Model client
-client = AzureOpenAIChatCompletionClient(
-    api_key=api_key,
-    azure_endpoint=api_endpoint,
+client = AzureAIChatCompletionClient(
     model="gpt-4o",
-    api_version="2024-05-13",
+    endpoint="https://models.inference.ai.azure.com",
+    credential=AzureKeyCredential(azure_api_key),
     model_info={
         "json_output": True,
         "function_calling": True,
         "vision": False,
         "family": "unknown",
+        "structured_output": True
     },
 )
+
+# api_key = os.getenv("OAI_KEY")
+# api_endpoint = os.getenv("OAI_ENDPOINT")
+
+# Azure GitHub Model client
+# client = AzureOpenAIChatCompletionClient(
+#     api_key=api_key,
+#     azure_endpoint=api_endpoint,
+#     model="gpt-4o",
+#     api_version="2024-05-13",
+#     model_info={
+#         "json_output": True,
+#         "function_calling": True,
+#         "vision": False,
+#         "family": "unknown",
+#     },
+# )
 
 # === Judge Agent Factory ===
 def create_judge_agent(name, model_client, dimension_prompt):

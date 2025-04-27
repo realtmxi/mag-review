@@ -1,5 +1,5 @@
 import chainlit as cl
-from orchestrator.multi_agent_router import multi_agent_dispatch_stream
+from orchestrator.sk_router_planner import multi_agent_dispatch_stream
 from typing import Optional
 import json
 

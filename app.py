@@ -4,6 +4,7 @@ from agents.literature_agent import run_literature_agent_stream
 from agents.document_agent import DocumentQAAgent
 from prompts.prompt_template import FILE_UPLOAD_MESSAGE
 from typing import Optional, AsyncGenerator
+from orchestrator.sk_router_planner import multi_agent_dispatch_stream
 import json
 import asyncio
 from dotenv import load_dotenv

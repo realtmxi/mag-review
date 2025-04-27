@@ -191,3 +191,4 @@ langchain-huggingface>=0.2.2
 docx2txt
 pypdf
 sentence-transformers
+semantic-kernel

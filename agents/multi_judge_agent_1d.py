@@ -26,16 +26,12 @@ def create_azure_client(key_env):
 client1 = create_azure_client("GITHUB_TOKEN")
 client2 = create_azure_client("GITHUB_TOKEN_2")
 
-# === Tools: arxiv + web
-arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for academic papers.")
-web_tool = FunctionTool(query_web, description="Searches the web for supporting resources beyond formal papers — including methods, datasets, results, discussions, and more.")
 
 # === Judge Agent Factory ===
 def create_judge_agent(name, model_client, dimension_prompt):
     return AssistantAgent(
         name=name,
         model_client=model_client,
-        tools=[arxiv_tool, web_tool],
         system_message=dimension_prompt,
         reflect_on_tool_use=True
     )

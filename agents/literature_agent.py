@@ -11,45 +11,44 @@ from azure.core.credentials import AzureKeyCredential
 from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
 from tools.arxiv_search_tool import query_arxiv, query_web
-
-
+from prompts.prompt_template import LITERATURE_AGENT_PROMPT
 
 load_dotenv()
 
 azure_api_key = os.getenv("GITHUB_TOKEN") 
-azure_endpoint = os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com") # e.g., "https://models.inference.ai.azure.com"
-model_name = os.getenv("LITERATURE_AGENT_MODEL", "gpt-4o") # Default to gpt-4o if not set
-
-# # Azure GitHub Model client
-# client = AzureAIChatCompletionClient(
-#     model="gpt-4o",
-#     endpoint="https://models.inference.ai.azure.com",
-#     credential=AzureKeyCredential(azure_api_key),
-#     model_info={
-#         "json_output": True,
-#         "function_calling": True,
-#         "vision": False,
-#         "family": "unknown",
-#         "structured_output": True
-#     },
-# )
-
-api_key = os.getenv("OAI_KEY")
-api_endpoint = os.getenv("OAI_ENDPOINT")
+azure_endpoint = os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com") 
+model_name = os.getenv("LITERATURE_AGENT_MODEL", "gpt-4o") 
 
 # Azure GitHub Model client
-client = AzureOpenAIChatCompletionClient(
-    api_key=api_key,
-    azure_endpoint=api_endpoint,
+client = AzureAIChatCompletionClient(
     model="gpt-4o",
-    api_version="2024-05-13",
+    endpoint="https://models.inference.ai.azure.com",
+    credential=AzureKeyCredential(azure_api_key),
     model_info={
         "json_output": True,
         "function_calling": True,
         "vision": False,
         "family": "unknown",
+        "structured_output": True
     },
 )
+
+# api_key = os.getenv("OAI_KEY")
+# api_endpoint = os.getenv("OAI_ENDPOINT")
+
+# # Azure GitHub Model client
+# client = AzureOpenAIChatCompletionClient(
+#     api_key=api_key,
+#     azure_endpoint=api_endpoint,
+#     model="gpt-4o",
+#     api_version="2024-05-13",
+#     model_info={
+#         "json_output": True,
+#         "function_calling": True,
+#         "vision": False,
+#         "family": "unknown",
+#     },
+# )
 # Wrap arxiv/web search tools
 arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for research papers.")
 web_tool = FunctionTool(query_web, description="Searches the web for relevant academic content.")
@@ -59,7 +58,7 @@ literature_assistant = AssistantAgent(
     name="LiteratureCollectionAgent",
     model_client=client,
     tools=[arxiv_tool, web_tool],
-    system_message="You are a research assistant who can search academic databases and summarize results for the user.",
+    system_message=LITERATURE_AGENT_PROMPT,
     reflect_on_tool_use=True,
     model_client_stream=True
 )

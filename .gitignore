@@ -50,3 +50,9 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# temp files
+.files
+
+# embedding model cache
+model_cache

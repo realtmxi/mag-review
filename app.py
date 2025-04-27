@@ -1,11 +1,34 @@
+import os
 import chainlit as cl
+from agents.literature_agent import run_literature_agent_stream
+from agents.document_agent import DocumentQAAgent
+from prompts.prompt_template import FILE_UPLOAD_MESSAGE
+from typing import Optional, AsyncGenerator
 from orchestrator.sk_router_planner import multi_agent_dispatch_stream
-from typing import Optional
 import json
+import asyncio
+from dotenv import load_dotenv
+load_dotenv()
 
-# Constants for agent types
 SEARCH_AGENT = "search"
 DOCUMENT_AGENT = "document"
+
+
+# TODO: move to qa agent later (draft now)
+async def run_document_agent_stream(question: str) -> AsyncGenerator[str, None]:
+    """Stream responses from the document agent"""
+    document_qa_agent = cl.user_session.get("document_qa_agent")
+    
+    if not document_qa_agent:
+        yield "Document QA agent not initialized. Please refresh the page."
+        return
+    
+    # First yield a thinking token
+    yield "⏳ Thinking..."
+    
+    # Then stream the response
+    async for token in document_qa_agent.answer_question(question):
+        yield token
 
 @cl.set_chat_profiles
 async def chat_profiles(current_user: cl.User):
@@ -16,26 +39,75 @@ async def chat_profiles(current_user: cl.User):
             icon="https://cdn-icons-png.flaticon.com/512/7641/7641727.png",
         ),
         cl.ChatProfile(
-            name="Document Analysis",
+            name="Document Agent",
             markdown_description="📑 **Document Intelligence System**\n\nUpload research papers, technical documents, and academic PDFs for in-depth analysis. Extract key insights, visualize data, identify main findings, and get comprehensive answers to your specific questions about the document content.",
             icon="https://cdn-icons-png.flaticon.com/512/4725/4725970.png",
         ),
     ]
 
+
 @cl.on_chat_start
 async def start():
-    # Initialize session variables
+    document_qa_agent = DocumentQAAgent()
     cl.user_session.set("history", [])
     cl.user_session.set("active_documents", [])
     
-    # Get the selected chat profile
     chat_profile = cl.user_session.get("chat_profile")
     
-    # Set the current agent based on the selected profile without sending a welcome message
     if chat_profile == "Search Agent":
         cl.user_session.set("current_agent", SEARCH_AGENT)
-    elif chat_profile == "Document Analysis":
+    elif chat_profile == "Document Agent":
         cl.user_session.set("current_agent", DOCUMENT_AGENT)
+        
+        try:
+            cl.user_session.set("document_qa_agent", document_qa_agent)
+            # Prompt for file upload
+            files = await cl.AskFileMessage(
+                content=FILE_UPLOAD_MESSAGE,
+                accept=["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+                max_size_mb=50,
+                max_files=10,
+                timeout=180
+            ).send()
+            
+            if files:
+                file_count = len(files) 
+                file_text = "file" if file_count == 1 else "files"
+                processing_msg = cl.Message(content=f"Processing {file_count} {file_text}...")
+                await processing_msg.send()
+                await asyncio.sleep(1)
+                
+                # TODO: Support multiple files
+                file = files[0]
+                
+                try:
+                    # Process the document using your existing document_qa_agent
+                    chunk_count = document_qa_agent.process_document(file.path, "pdf", file.name)
+                    
+                    # Add to active documents list
+                    active_docs = cl.user_session.get("active_documents", [])
+                    active_docs.append({
+                        "name": file.name,
+                        "path": file.path,
+                        # "type": file.type,
+                        "chunks": chunk_count
+                    })
+                    cl.user_session.set("active_documents", active_docs)
+                    
+                    # Update the processing message
+                    processing_msg.content = f"✅ Processed! Your documents are now at your fingertips - what would you like to discover?"
+                    await processing_msg.update()
+                    
+                except Exception as e:
+                    # Handle processing errors
+                    processing_msg.content = f"❌ Failed to process {file.name}: {str(e)}"
+                    await processing_msg.update()
+            
+        except Exception as e:
+            await cl.Message(
+                content=f"Failed to initialize Document QA Agent: {str(e)}",
+                author="System"
+            ).send()
 
 
 @cl.on_message
@@ -45,22 +117,17 @@ async def main(message: cl.Message):
     
     history = cl.user_session.get("history")
     history.append(("user", message.content))
+    # print(history)
     
     if current_agent == SEARCH_AGENT:
         await handle_search_message(message)
     elif current_agent == DOCUMENT_AGENT:
-        # placeholder, work in progress
-        await handle_search_message(message)
+        await handle_document_message(message)
 
 
-@cl.on_message
 async def handle_search_message(message: cl.Message):
     # Process the user input
     user_input = message.content.strip()
-    
-    # Update conversation history
-    history = cl.user_session.get("history")
-    history.append(("user", user_input))
     
     # Initialize message for streaming with "Thinking..."
     msg = cl.Message(content="Thinking...")
@@ -70,7 +137,7 @@ async def handle_search_message(message: cl.Message):
         full_response = ""
         
         # Stream tokens from the appropriate agent
-        async for token in multi_agent_dispatch_stream(user_input):
+        async for token in run_literature_agent_stream(user_input):
             if token:
                 # Skip the loader token
                 if token == "⏳ Thinking...":
@@ -86,8 +153,8 @@ async def handle_search_message(message: cl.Message):
                 full_response += token
                 await msg.stream_token(token)
         
-        # Update history with assistant's response
         if full_response:
+            history = cl.user_session.get("history")
             history.append(("assistant", full_response))
     
     except Exception as e:
@@ -96,3 +163,52 @@ async def handle_search_message(message: cl.Message):
         await error_msg.send()
         print(f"Error: {str(e)}")
         return
+    
+async def handle_document_message(message: cl.Message):
+    user_input = message.content.strip()
+    msg = cl.Message(content="Thinking...")
+    await msg.send()
+    
+    try:
+        full_response = ""
+        
+        # Stream tokens from the document agent
+        async for token in run_document_agent_stream(user_input):
+            if token:
+                # Skip the loader token
+                if token == "⏳ Thinking...":
+                    continue
+                
+                if full_response == "":
+                    msg.content = ""
+                    await msg.update()
+                
+                # Add token to full response
+                full_response += token
+                await msg.stream_token(token)
+        
+        if full_response:
+            history = cl.user_session.get("history")
+            history.append(("assistant", full_response))
+    
+    except Exception as e:
+        # Handle any errors during streaming
+        error_msg = cl.Message(content=f"Sorry, I encountered an error: {str(e)}")
+        await error_msg.send()
+        print(f"Error: {str(e)}")
+        return
+
+@cl.on_chat_end
+async def end():
+    """Clean up resources when the chat ends"""
+    document_qa_agent = cl.user_session.get("document_qa_agent")
+    if document_qa_agent:
+        document_qa_agent.cleanup()
+    
+    # Remove temporary files
+    active_docs = cl.user_session.get("active_documents", [])
+    for doc in active_docs:
+        try:
+            os.remove(doc["path"])
+        except:
+            pass

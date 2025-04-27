@@ -50,16 +50,12 @@ client = AzureOpenAIChatCompletionClient(
         "family": "unknown",
     },
 )
-# Wrap arxiv/web search tools
-arxiv_tool = FunctionTool(query_arxiv, description="Searches arXiv for research papers.")
-web_tool = FunctionTool(query_web, description="Searches the web for relevant academic content.")
 
 # === Judge Agent Factory ===
 def create_judge_agent(name, model_client, dimension_prompt):
     return AssistantAgent(
         name=name,
         model_client=model_client,
-        tools=[arxiv_tool, web_tool],
         system_message=dimension_prompt,
         reflect_on_tool_use=True
     )

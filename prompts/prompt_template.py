@@ -24,6 +24,7 @@ Instructions:
 4. If the answer cannot be found in the document context, clearly state this.
 5. Do not refer to general knowledge or use web search tools unless specifically requested.
 6. At the end of each answer, ask if the user wants to search online for additional information.
+Reply TERMINATE when the task is done
 """
 
 USER_PROXY_AGENT_PROMPT = """

@@ -23,9 +23,6 @@ async def run_document_agent_stream(question: str) -> AsyncGenerator[str, None]:
         yield "Document QA agent not initialized. Please refresh the page."
         return
     
-    # First yield a thinking token
-    yield "⏳ Thinking..."
-    
     # Then stream the response
     async for token in document_qa_agent.answer_question(question):
         yield token
@@ -184,31 +181,19 @@ async def handle_search_message(message: cl.Message):
     
 async def handle_document_message(message: cl.Message):
     user_input = message.content.strip()
-    msg = cl.Message(content="Thinking...")
-    await msg.send()
+    thinking_msg  = cl.Message(content="⏳ Processing your question...")
+    await thinking_msg.send()
     
     try:
-        full_response = ""
+        # The modified document agent will handle UI display through its agents
+        # just need to call the stream function to start the process
+        async for _ in run_document_agent_stream(user_input):
+            pass
         
-        # Stream tokens from the document agent
-        async for token in run_document_agent_stream(user_input):
-            if token:
-                # Skip the loader token
-                if token == "⏳ Thinking...":
-                    continue
-                
-                if full_response == "":
-                    msg.content = ""
-                    await msg.update()
-                
-                # Add token to full response
-                full_response += token
-                await msg.stream_token(token)
-        
-        if full_response:
-            history = cl.user_session.get("history")
-            history.append(("assistant", full_response))
-    
+        history = cl.user_session.get("history")
+        history.append(("user", user_input))
+        await thinking_msg.remove()
+
     except Exception as e:
         # Handle any errors during streaming
         error_msg = cl.Message(content=f"Sorry, I encountered an error: {str(e)}")

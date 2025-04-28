@@ -1,14 +1,18 @@
 import os
-from typing import List, Dict, Any, AsyncGenerator
+from typing import AsyncGenerator, Dict, Optional, Union
+import chainlit as cl
 import chromadb
+import chainlit as cl
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import CSVLoader, TextLoader, PyMuPDFLoader, Docx2txtLoader
-from autogen import AssistantAgent, UserProxyAgent, config_list_from_json
+from langchain_community.document_loaders import TextLoader, PyMuPDFLoader, Docx2txtLoader
+from autogen import Agent, UserProxyAgent, AssistantAgent, ConversableAgent
 from autogen_ext.models.azure import AzureAIChatCompletionClient
 from azure.core.credentials import AzureKeyCredential
+from autogen import register_function
 from prompts.prompt_template import DOCUMENT_AGENT_PROMPT, USER_PROXY_AGENT_PROMPT
+from tools.arxiv_search_tool import query_arxiv, query_web
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -33,12 +37,96 @@ class EmbeddingsManager:
                 }  
             )
         return cls._embeddings
+    
+    
+# Define Chainlit-integrated agent classes
+class ChainlitDocumentAssistantAgent(AssistantAgent):
+    def send(
+        self,
+        message: Union[Dict, str],
+        recipient: Agent,
+        request_reply: Optional[bool] = None,
+        silent: Optional[bool] = False,
+    ) -> bool:
+        cl.run_sync(
+            cl.Message(
+                content=f'{message}',
+                author="DocumentAnalystAgent",
+            ).send()
+        )
+        return super(ChainlitDocumentAssistantAgent, self).send(
+            message=message,
+            recipient=recipient,
+            request_reply=request_reply,
+            silent=silent,
+        )
+
+class ChainlitDocumentUserProxyAgent(UserProxyAgent):
+    async def get_human_input(self, prompt: str) -> str:
+        """Get human input via Chainlit UI"""
+        async def ask_helper(func, **kwargs):
+            res = await func(**kwargs).send()
+            while not res:
+                res = await func(**kwargs).send()
+            return res
+            
+        if prompt.startswith(
+            "Please give feedback to DocumentAnalystAgent. Press enter to skip and use auto-reply"
+        ):
+            res = await ask_helper(
+                cl.AskActionMessage,
+                content="Continue or provide feedback?",
+                actions=[
+                    cl.Action(
+                        name="continue",
+                        payload={"value": "continue"},
+                        label="✅ Continue",
+                    ),
+                    cl.Action(
+                        name="feedback",
+                        payload={"value": "feedback"},
+                        label="💬 Provide feedback",
+                    ),
+                    cl.Action(
+                        name="exit",
+                        payload={"value": "exit"},
+                        label="🔚 Exit Conversation",
+                    ),
+                ],
+            )
+            if res.get("payload").get("value") == "continue":
+                return ""
+            if res.get("payload").get("value") == "exit":
+                return "exit"
+                
+        reply = await ask_helper(cl.AskUserMessage, content=prompt, timeout=60)
+        return reply["content"].strip()
+        
+    # def send(
+    #     self,
+    #     message: Union[Dict, str],
+    #     recipient: Agent,
+    #     request_reply: Optional[bool] = None,
+    #     silent: Optional[bool] = False,
+    # ):
+    #     cl.run_sync(
+    #         cl.Message(
+    #             content=f'{message}',
+    #             author="User (Feedback)",
+    #         ).send()
+    #     )
+    #     return super(ChainlitDocumentUserProxyAgent, self).send(
+    #         message=message,
+    #         recipient=recipient,
+    #         request_reply=request_reply,
+    #         silent=silent,
+    #     )
 
 class DocumentQAAgent:
     def __init__(self):
         # Model client
         self.client = AzureAIChatCompletionClient(
-            model="gpt-4o",
+            model="gpt-4",
             endpoint=os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com"),
             credential=AzureKeyCredential(os.getenv("GITHUB_TOKEN")),
                 model_info={
@@ -67,21 +155,22 @@ class DocumentQAAgent:
         # Assistant
         self.llm_config = {
             "config_list": [{
-                "model": "gpt-4o",
+                "model": "gpt-4",
                 "api_key": os.getenv("GITHUB_TOKEN"),
                 "base_url": os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com"),
-            }]
+            }],
         }
         self.assistant = self._create_doc_assistant(self.llm_config)
     
     def _create_doc_assistant(self, llm_config):
         """Create the AutoGen assistant with the proper configuration"""
-        return AssistantAgent(
+        assistant = ChainlitDocumentAssistantAgent(
             name="DocumentAnalystAgent",
             llm_config=llm_config,
-            system_message=DOCUMENT_AGENT_PROMPT
+            system_message=DOCUMENT_AGENT_PROMPT,
         )
-      
+        return assistant
+        
     def _retrieve_context(self, query: str, top_k: int = 5) -> str:
         """Retrieve relevant document sections for a given query"""
         if not self.vector_store:
@@ -190,37 +279,38 @@ class DocumentQAAgent:
             return
         
         # Create user proxy for interaction
-        user_proxy = UserProxyAgent(
+        user_proxy = ChainlitDocumentUserProxyAgent(
             name="User",
-            human_input_mode="NEVER", #TODO: update later
-            max_consecutive_auto_reply=0,
-            code_execution_config=False
+            llm_config=False,  # This disables LLM usage for this agent
+            human_input_mode="TERMINATE",  # Change this to ALWAYS to get input from a real user
+            max_consecutive_auto_reply=1,  # Set to 0 to require human input for every reply
+            code_execution_config={"use_docker": False},
+            is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),
         )
 
-        response = ""
+        register_function(
+            query_web,
+            caller=self.assistant, 
+            executor=user_proxy, 
+            name="web_search",  
+            description="Searches the web for relevant academic content",
+        )
+        
+        yield "⏳ Thinking..."
+        
         try:
             chat_result = user_proxy.initiate_chat(
                 self.assistant,
-                message=self._get_user_proxy_prompt(question, context)
+                message=self._get_user_proxy_prompt(question, context),
             )
-            
-            if chat_result.summary:
-                response = chat_result.summary
-            else:
-                # Fallback to searching in chat history if summary is empty
-                for message in reversed(chat_result.chat_history):
-                    if message.get("name") == "DocumentAnalystAgent":
-                        response = message["content"]
-                        break
-            if not response:
-                response = "Failed to generate a response."
+            assistant_messages = [msg for msg in chat_result.chat_history if msg["sender"] == "DocumentAnalystAgent"]
+            if not assistant_messages:
+                yield "Failed to generate a response."
+                
         except Exception as e:
             response = f"Error generating response: {str(e)}"
         
-        # Simulate streaming by yielding response in chunks
-        chunk_size = 10  
-        for i in range(0, len(response), chunk_size):
-            yield response[i:i+chunk_size]
+        yield " "
     
     def cleanup(self):
         """Clean up the temporary collection"""

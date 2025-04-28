@@ -18,27 +18,10 @@ azure_api_key = os.getenv("GITHUB_TOKEN")
 
 
 # Azure GitHub Model client
-# client = AzureAIChatCompletionClient(
-#     model="gpt-4o",
-#     endpoint="https://models.inference.ai.azure.com",
-#     credential=AzureKeyCredential(azure_api_key),
-#     model_info={
-#         "json_output": True,
-#         "function_calling": True,
-#         "vision": False,
-#         "family": "unknown",
-#     },
-# )
-
-api_key = os.getenv("OAI_KEY")
-api_endpoint = os.getenv("OAI_ENDPOINT")
-
-# Azure GitHub Model client
-client = AzureOpenAIChatCompletionClient(
-    api_key=api_key,
-    azure_endpoint=api_endpoint,
+client = AzureAIChatCompletionClient(
     model="gpt-4o",
-    api_version="2024-05-13",
+    endpoint="https://models.inference.ai.azure.com",
+    credential=AzureKeyCredential(azure_api_key),
     model_info={
         "json_output": True,
         "function_calling": True,
@@ -46,6 +29,23 @@ client = AzureOpenAIChatCompletionClient(
         "family": "unknown",
     },
 )
+
+# api_key = os.getenv("OAI_KEY")
+# api_endpoint = os.getenv("OAI_ENDPOINT")
+
+# Azure GitHub Model client
+# client = AzureOpenAIChatCompletionClient(
+#     api_key=api_key,
+#     azure_endpoint=api_endpoint,
+#     model="gpt-4o",
+#     api_version="2024-05-13",
+#     model_info={
+#         "json_output": True,
+#         "function_calling": True,
+#         "vision": False,
+#         "family": "unknown",
+#     },
+# )
 
 # Define tools for Q&A
 context_answer_tool = FunctionTool(

@@ -1,9 +1,13 @@
 import os
+import json
+import asyncio
 from typing import AsyncGenerator
 from dotenv import load_dotenv
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
+from autogen_ext.models.azure import AzureAIChatCompletionClient
+from azure.core.credentials import AzureKeyCredential
 from autogen_core import CancellationToken
 
 load_dotenv()
@@ -124,39 +128,66 @@ final_judge = AssistantAgent(
 
 # Async runner wrapper with proper token streaming
 async def run_multi_judge_agents(user_input: str) -> AsyncGenerator[str, None]:
+    """
+    Run three Judge agents concurrently with real-time progress feedback,
+    then aggregate their outputs via a Final Judge.
+    """
     judge1 = create_judge_agent("Judge_Relevance", client, judge_relevance_prompt)
     judge2 = create_judge_agent("Judge_Impact", client, judge_impact_prompt)
     judge3 = create_judge_agent("Judge_Novelty", client, judge_novelty_prompt)
 
+    # Define judges
     judge_agents = [judge1, judge2, judge3]
+
+    print("🚀 Starting concurrent evaluation by 3 Judge Agents...")
+
+    async def invoke_judge(judge_agent):
+        print(f"🕒 {judge_agent.name} started evaluation...")
+        try:
+            response = await judge_agent.on_messages(
+                [TextMessage(content=user_input, source="user")],
+                cancellation_token=CancellationToken()
+            )
+            print(f"✅ {judge_agent.name} finished evaluation.")
+            return response.chat_message.content
+        except Exception as e:
+            print(f"❌ {judge_agent.name} failed: {e}")
+            return None
+
+    # Run all judge agents concurrently
+    judge_outputs_list = await asyncio.gather(*(invoke_judge(j) for j in judge_agents))
+
+    # Check and map judge outputs
     judge_outputs = {}
+    for judge, output in zip(judge_agents, judge_outputs_list):
+        if output:
+            judge_outputs[judge.name] = output
+        else:
+            print(f"⚠️ Warning: {judge.name} returned no output.")
 
-    for judge in judge_agents:
-        print(f"🧠 Invoking {judge.name}...")
-        result = await judge.on_messages(
-            [TextMessage(content=user_input, source="user")],
-            cancellation_token=CancellationToken()
-        )
+    # Prepare JSON input for final judge
+    final_input = json.dumps(judge_outputs, indent=2)
 
-        content = getattr(result.chat_message, "content", str(result))
-        judge_outputs[judge.name] = content
+    print("🎯 Aggregating all evaluations with Final Judge...")
 
         # Create aggregation prompt for Final Judge (no JSON parsing)
     aggregation_prompt = (
         "You are the final judge aggregating independent evaluations from three judge agents.\n\n"
+        f"User query: {user_input}\n\n"
         "Each judge has independently reviewed a set of papers based on a specific dimension: semantic relevance, impact, or novelty.\n"
         "Their outputs may include paper titles, abstracts, scores (1–10), and short reasons.\n\n"
         "Your task is to:\n"
-        "1. Read all three agents' evaluations.\n"
-        "2. Select and rank the top 5 papers across all outputs.\n"
-        "3. Provide for each selected paper:\n"
+        "1. Read the user's query carefully.\n"
+        "2. Read all three agents' evaluations.\n"
+        "3. Select and rank the top 5 papers across all outputs that best match the user's query.\n"
+        "4. For each selected paper, provide:\n"
         "   - Title\n"
         "   - Abstract\n"
         "   - Link (if available)\n"
-        "4. Write a final summary paragraph describing the selection trends and how these papers relate to the user's query.\n\n"
+        "5. Write a final summary paragraph describing the selection trends and why these papers are particularly suited to the user's needs.\n\n"
         "DO NOT include any judge disagreements, internal calculations, or tool usage logs.\n"
         "ONLY include the final output.\n\n"
-        f"Here is the input JSON containing the three judges' evaluations:\n{json.dumps(judge_outputs)}"
+        f"Here is the input JSON containing the three judges' evaluations:\n{final_input}"
     )
 
     print("🏁 Invoking Final Judge...")
@@ -165,7 +196,6 @@ async def run_multi_judge_agents(user_input: str) -> AsyncGenerator[str, None]:
         cancellation_token=CancellationToken()
     )
 
-    
     # Yield a loader indicator
     yield "⏳ Thinking..."
     

@@ -10,7 +10,7 @@ from semantic_kernel.functions.kernel_arguments import KernelArguments
 
 from agents.multi_judge_agent import run_multi_judge_agents
 from agents.literature_agent import run_literature_agent_stream
-from agents.qa_agent import run_qa_agent
+from agents.document_agent import DocumentQAAgent
 
 load_dotenv()
 
@@ -52,7 +52,8 @@ async def multi_agent_dispatch_stream(user_input: str) -> str:
         async for token in run_literature_agent_stream(user_input):
             yield token
     elif "qa_plugin" in result_str:
-        async for token in run_qa_agent(user_input):
+        document_qa_agent = DocumentQAAgent()
+        async for token in document_qa_agent.run_document_agent_stream(user_input):
             yield token
     else:
         async for token in run_literature_agent_stream(user_input):

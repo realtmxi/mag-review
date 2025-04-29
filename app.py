@@ -2,9 +2,8 @@ import os
 import chainlit as cl
 from agents.document_agent import DocumentQAAgent
 from prompts.prompt_template import FILE_UPLOAD_MESSAGE
-from typing import Optional, AsyncGenerator
 from orchestrator.sk_router_planner import multi_agent_dispatch_stream
-import json
+from prompts.prompt_template import LITERATURE_AGENT_DESCRIPTION, DOCUMENT_AGENT_DESCRIPTION
 import asyncio
 from dotenv import load_dotenv
 load_dotenv()
@@ -12,38 +11,20 @@ load_dotenv()
 SEARCH_AGENT = "search"
 DOCUMENT_AGENT = "document"
 
-
-# TODO: move to qa agent later (draft now)
-async def run_document_agent_stream(question: str) -> AsyncGenerator[str, None]:
-    """Stream responses from the document agent"""
-    document_qa_agent = cl.user_session.get("document_qa_agent")
-    
-    if not document_qa_agent:
-        yield "Document QA agent not initialized. Please refresh the page."
-        return
-    
-    # First yield a thinking token
-    yield "⏳ Thinking..."
-    
-    # Then stream the response
-    async for token in document_qa_agent.answer_question(question):
-        yield token
-
 @cl.set_chat_profiles
 async def chat_profiles(current_user: cl.User):
     return [
         cl.ChatProfile(
             name="Search Agent",
-            markdown_description="🔎 **Academic Research Explorer**\n\nAccess cutting-edge research papers and scholarly articles from arXiv, academic databases, and trusted web sources. Perfect for comprehensive literature reviews, citation analysis, and staying current with the latest developments in your field.",
+            markdown_description=LITERATURE_AGENT_DESCRIPTION,
             icon="https://cdn-icons-png.flaticon.com/512/7641/7641727.png",
         ),
         cl.ChatProfile(
             name="Document Agent",
-            markdown_description="📑 **Document Intelligence System**\n\nUpload research papers, technical documents, and academic PDFs for in-depth analysis. Extract key insights, visualize data, identify main findings, and get comprehensive answers to your specific questions about the document content.",
+            markdown_description=DOCUMENT_AGENT_DESCRIPTION,
             icon="https://cdn-icons-png.flaticon.com/512/4725/4725970.png",
         ),
     ]
-
 
 @cl.on_chat_start
 async def start():
@@ -134,13 +115,11 @@ async def main(message: cl.Message):
     
     history = cl.user_session.get("history")
     history.append(("user", message.content))
-    # print(history)
     
     if current_agent == SEARCH_AGENT:
         await handle_search_message(message)
     elif current_agent == DOCUMENT_AGENT:
         await handle_document_message(message)
-
 
 async def handle_search_message(message: cl.Message):
     # Process the user input
@@ -162,7 +141,6 @@ async def handle_search_message(message: cl.Message):
                 
                 # For the first real token, update the existing message
                 if full_response == "":
-                    # Clear the "Thinking..." text
                     msg.content = ""
                     await msg.update()
                 
@@ -185,17 +163,20 @@ async def handle_document_message(message: cl.Message):
     user_input = message.content.strip()
     msg = cl.Message(content="Thinking...")
     await msg.send()
+    await asyncio.sleep(1) 
     
     try:
         full_response = ""
         
-        # Stream tokens from the document agent
-        async for token in run_document_agent_stream(user_input):
+        document_qa_agent = cl.user_session.get("document_qa_agent")
+        
+        if not document_qa_agent:
+            msg.content = "Document QA agent not initialized. Please refresh the page."
+            await msg.update()
+            return
+        
+        async for token in document_qa_agent.run_document_agent_stream(user_input):
             if token:
-                # Skip the loader token
-                if token == "⏳ Thinking...":
-                    continue
-                
                 if full_response == "":
                     msg.content = ""
                     await msg.update()

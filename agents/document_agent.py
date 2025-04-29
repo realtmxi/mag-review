@@ -8,7 +8,9 @@ from langchain_community.document_loaders import CSVLoader, TextLoader, PyMuPDFL
 from autogen import AssistantAgent, UserProxyAgent, config_list_from_json
 from autogen_ext.models.azure import AzureAIChatCompletionClient
 from azure.core.credentials import AzureKeyCredential
+from tools.arxiv_search_tool import query_web
 from prompts.prompt_template import DOCUMENT_AGENT_PROMPT, USER_PROXY_AGENT_PROMPT
+from autogen import register_function
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -38,7 +40,7 @@ class DocumentQAAgent:
     def __init__(self):
         # Model client
         self.client = AzureAIChatCompletionClient(
-            model="gpt-4o",
+            model="gpt-4.1-mini",
             endpoint=os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com"),
             credential=AzureKeyCredential(os.getenv("GITHUB_TOKEN")),
                 model_info={
@@ -67,19 +69,30 @@ class DocumentQAAgent:
         # Assistant
         self.llm_config = {
             "config_list": [{
-                "model": "gpt-4o",
+                "model": "gpt-4.1-mini",
                 "api_key": os.getenv("GITHUB_TOKEN"),
                 "base_url": os.getenv("AZURE_INFERENCE_ENDPOINT", "https://models.inference.ai.azure.com"),
             }]
         }
         self.assistant = self._create_doc_assistant(self.llm_config)
+        self.user_proxy = self._create_user_proxy()
     
     def _create_doc_assistant(self, llm_config):
-        """Create the AutoGen assistant with the proper configuration"""
+        """Create the AutoGen document analyst assistant with the proper configuration"""
         return AssistantAgent(
             name="DocumentAnalystAgent",
             llm_config=llm_config,
             system_message=DOCUMENT_AGENT_PROMPT
+        )
+    
+    def _create_user_proxy(self):
+        """Create the User proxy agent with the proper configuration"""
+        return UserProxyAgent(
+            name="User",
+            human_input_mode="NEVER",
+            default_auto_reply="Please search the web if user requested and provide the final organized response.",
+            max_consecutive_auto_reply=2,
+            code_execution_config=False,
         )
       
     def _retrieve_context(self, query: str, top_k: int = 5) -> str:
@@ -189,17 +202,18 @@ class DocumentQAAgent:
             yield "Please upload documents first."
             return
         
-        # Create user proxy for interaction
-        user_proxy = UserProxyAgent(
-            name="User",
-            human_input_mode="NEVER", #TODO: update later
-            max_consecutive_auto_reply=0,
-            code_execution_config=False
+        # Tool register
+        register_function(
+            query_web,
+            caller=self.assistant, 
+            executor=self.user_proxy, 
+            name="web_search",  
+            description="Searches the web for relevant academic content",
         )
 
         response = ""
         try:
-            chat_result = user_proxy.initiate_chat(
+            chat_result = self.user_proxy.initiate_chat(
                 self.assistant,
                 message=self._get_user_proxy_prompt(question, context)
             )
@@ -221,6 +235,11 @@ class DocumentQAAgent:
         chunk_size = 10  
         for i in range(0, len(response), chunk_size):
             yield response[i:i+chunk_size]
+    
+    async def run_document_agent_stream(self, question: str) -> AsyncGenerator[str, None]:
+        """Stream responses from the document agent"""
+        async for token in self.answer_question(question):
+            yield token
     
     def cleanup(self):
         """Clean up the temporary collection"""

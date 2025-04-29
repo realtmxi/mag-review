@@ -7,6 +7,9 @@ It simulates a full AI research pipeline:
 - 🧾 **Paper Review Agent** – summarizes, visualizes, and enhances PDFs
 - ❓ **Q&A Agent** – answers follow-up questions from reviewed content
 
+![image](https://github.com/user-attachments/assets/330950ac-1f9c-4615-b6b3-56d380ce08f3)
+
+
 ---
 
 ## 🚀 Features

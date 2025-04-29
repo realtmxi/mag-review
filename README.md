@@ -27,6 +27,7 @@ It simulates a full AI research pipeline:
 
 | Layer | Tool |
 |-------|------|
+| Orchestrator | `semantic-kernel` |
 | Agents | `autogen-agentchat` |
 | Tools  | `autogen-core`, `FunctionTool` |
 | LLMs   | GitHub-hosted models on Azure Inference |

@@ -22,7 +22,7 @@ The system supports **two core tabs** in the UI:
 - **📄 QA Assistant**
   - Supports document-based Q&A using a **robust RAG pipeline**.
   - Allows **uploading up to 10 files**, supporting `PDF`, `DOC`, `TXT`, etc.
-  - Retrieves context using **chunking + cosine similarity** and enriches answers with **web search + citation**.
+  - Retrieves context using **embedding + chunking + cosine similarity** and enriches answers with **web search + citation**.
 
 ---
 
@@ -62,10 +62,10 @@ A **Final Judge** agent aggregates the results through **reasoned synthesis**, p
 | Layer             | Tools Used                                                                 |
 |------------------|-----------------------------------------------------------------------------|
 | Agent Framework   | `AutoGen AgentChat`, `Semantic Kernel`, `FunctionTool`                     |
-| LLM Backend       | Azure OpenAI (`AzureChatCompletion`, GPT-4o-mini)                          |
+| LLM Backend       | Azure OpenAI (`AzureChatCompletion`, GPT-4o)                          |
 | Routing           | `FunctionCallingStepwisePlanner` for intelligent skill invocation          |
 | Retrieval         | `arxiv.org API`, `DuckDuckGo`, `NER-based keyword extraction`              |
-| Document QA       | `LangChain`, `Chroma`, `PyMuPDF`, `unstructured`, `cosine similarity`      |
+| Document QA       | `LangChain`, `Chroma`, `sentence-transformers`, `cosine similarity`      |
 | UI & UX           | `Chainlit` interface with interactive tabs                                 |
 | Data Security     | `.env`, `dotenv`, Azure key + PAT protection                               |
 
@@ -138,7 +138,7 @@ Then open [http://localhost:8000](http://localhost:8000)
 
 - "Recommend classic deep learning papers."
 - "Find the latest 2024 papers on Graph Transformers with code."
-- "Upload and summarize these three PDFs."
+- "Upload and compare the training process mentioned in these three documents."
 - "Compare the novelty of these two LLM papers."
 
 ---

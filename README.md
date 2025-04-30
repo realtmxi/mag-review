@@ -1,5 +1,6 @@
-# Multi-Agent Research Assistant
+# Research Intelligence Hub
 
+Explore research smarter—with intelligent tools for discovery and document analysis.
 An advanced research assistant powered by **AutoGen AgentChat**, **Microsoft Azure Semantic Kernel**, and **Chainlit UI**, simulating the full academic workflow from literature search to document analysis.
 
 > ⚙️ **Built for the Microsoft AI Agent Hackathon** — this system demonstrates **intelligent agent routing**, **modular architecture**, **semantic reasoning**, and **tool-enhanced AI interactions**, all using **Azure-native services**.

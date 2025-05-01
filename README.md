@@ -172,3 +172,10 @@ Then open [http://localhost:8000](http://localhost:8000)
 - Semantic Kernel & Azure AI Agent Team
 - Chainlit.io contributors
 - All open-source tools & research APIs used
+
+---
+
+## 📽️ Demo
+
+[![Demo Video](https://img.youtube.com/vi/lkIC9_Cq7Ls/0.jpg)](https://www.youtube.com/watch?v=lkIC9_Cq7Ls)
+

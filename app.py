@@ -5,6 +5,7 @@ import json
 
 # Constants for agent types
 SEARCH_AGENT = "search"
+WEB_CRAWLING_AGENT = "web_crawling"
 DOCUMENT_AGENT = "document"
 
 @cl.set_chat_profiles
@@ -14,6 +15,11 @@ async def chat_profiles(current_user: cl.User):
             name="Search Agent",
             markdown_description="🔎 **Academic Research Explorer**\n\nAccess cutting-edge research papers and scholarly articles from arXiv, academic databases, and trusted web sources. Perfect for comprehensive literature reviews, citation analysis, and staying current with the latest developments in your field.",
             icon="https://cdn-icons-png.flaticon.com/512/7641/7641727.png",
+        ),
+        cl.ChatProfile(
+            name="Web Crawling & Data Extraction",
+            markdown_description="🕷️ **Enhanced Web Crawling Agent**\n\nCrawl websites and extract structured data using ontology-based transformations. Convert unstructured web content into organized (URL, content) pairs with customizable schemas and few-shot learning. Perfect for data collection, content analysis, and information structuring.",
+            icon="https://cdn-icons-png.flaticon.com/512/2966/2966327.png",
         ),
         cl.ChatProfile(
             name="Document Analysis",
@@ -34,6 +40,8 @@ async def start():
     # Set the current agent based on the selected profile without sending a welcome message
     if chat_profile == "Search Agent":
         cl.user_session.set("current_agent", SEARCH_AGENT)
+    elif chat_profile == "Web Crawling & Data Extraction":
+        cl.user_session.set("current_agent", WEB_CRAWLING_AGENT)
     elif chat_profile == "Document Analysis":
         cl.user_session.set("current_agent", DOCUMENT_AGENT)
 
@@ -46,15 +54,16 @@ async def main(message: cl.Message):
     history = cl.user_session.get("history")
     history.append(("user", message.content))
     
-    if current_agent == SEARCH_AGENT:
-        await handle_search_message(message)
-    elif current_agent == DOCUMENT_AGENT:
-        # placeholder, work in progress
-        await handle_search_message(message)
+    # Always use the multi-agent router for intelligent routing
+    # This ensures web crawling and other agents work properly
+    await handle_universal_message(message)
 
 
-@cl.on_message
-async def handle_search_message(message: cl.Message):
+async def handle_universal_message(message: cl.Message):
+    """
+    Universal message handler that routes to appropriate agents based on content.
+    Supports: Literature Search, Web Crawling, Document Analysis, and more.
+    """
     # Process the user input
     user_input = message.content.strip()
     
@@ -68,23 +77,45 @@ async def handle_search_message(message: cl.Message):
     
     try:
         full_response = ""
+        first_content_received = False
         
         # Stream tokens from the appropriate agent
         async for token in multi_agent_dispatch_stream(user_input):
-            if token:
-                # Skip the loader token
-                if token == "⏳ Thinking...":
+            if token and token.strip():  # Ensure token has content
+                print(f"DEBUG: Received token: {repr(token[:100])}")  # Debug output
+                
+                # Skip various loader tokens
+                if token.strip() in ["⏳ Thinking...", "🚀 Initializing Enhanced Web Crawling Agent..."]:
                     continue
                 
-                # For the first real token, update the existing message
-                if full_response == "":
-                    # Clear the "Thinking..." text
+                # For the first real token, clear "Thinking..." and start fresh
+                if not first_content_received:
                     msg.content = ""
                     await msg.update()
+                    first_content_received = True
                 
-                # Add token to full response
+                # Add token to full response and stream it
                 full_response += token
                 await msg.stream_token(token)
+        
+        # If no streaming content was received, get the complete response
+        if not full_response.strip():
+            # Fallback: get complete response for web crawling agent
+            print("No streaming content received, using fallback method...")
+            
+            # Import the web crawling agent directly
+            from agents.enhanced_web_crawling_agent import run_enhanced_web_crawling_agent_simple
+            
+            try:
+                complete_response = await run_enhanced_web_crawling_agent_simple(user_input)
+                msg.content = complete_response
+                await msg.update()
+                full_response = complete_response
+            except Exception as fallback_error:
+                error_text = f"Error during crawling: {str(fallback_error)}"
+                msg.content = error_text
+                await msg.update()
+                full_response = error_text
         
         # Update history with assistant's response
         if full_response:

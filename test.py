@@ -19,7 +19,7 @@ async def main():
         api_key=api_key,
         azure_endpoint=api_endpoint,
         api_version="2024-05-13",
-        model="gpt-4",  # Replace with your actual model deployment name
+        model="gpt-4o",  # Replace with your actual model deployment name
     )
     
     # Create an assistant agent
@@ -71,7 +71,7 @@ async def test_with_tool():
         api_key=api_key,
         azure_endpoint=api_endpoint,
         api_version="2024-05-13",
-        model="gpt-4",  # Replace with your actual model deployment name
+        model="gpt-4o",  # Replace with your actual model deployment name
     )
     
     # Create an assistant agent with tools

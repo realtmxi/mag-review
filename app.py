@@ -82,7 +82,7 @@ async def handle_universal_message(message: cl.Message):
         # Stream tokens from the appropriate agent
         async for token in multi_agent_dispatch_stream(user_input):
             if token and token.strip():  # Ensure token has content
-                print(f"DEBUG: Received token: {repr(token[:100])}")  # Debug output
+                print(f"DEBUG: Received token: {repr(token)}")  # Debug output - show full token
                 
                 # Skip various loader tokens
                 if token.strip() in ["⏳ Thinking...", "🚀 Initializing Enhanced Web Crawling Agent..."]:
